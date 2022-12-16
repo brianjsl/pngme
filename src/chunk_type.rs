@@ -1,52 +1,107 @@
-use std::str::FromStr;
-use std::fmt::Display;
+//!
+//! 4 byte PNG Chunk Type (TypeCode) Object 
+//!
+use std::{fmt, str, convert::TryFrom, error};
 
-pub struct ChunkType {
-    length: [u8; 4], 
-    typecode: [u8; 4],
-    
-}
+
+/// 4 byte ChunkType Field of Chunk Object 
+#[derive(PartialEq, Eq, Debug)]
+pub struct ChunkType(u8, u8, u8, u8);
 
 impl ChunkType {
+
+    fn is_valid_b(val: u8) -> bool {
+        (65<= val && val <= 90) || (97 <= val && val <= 122) 
+    }
+
+    /// Gets the fifth bit of the val as a bool
+    fn get_fifth_bit(val: u8) -> bool {
+        (val >> 5 & 1) != 0
+    }
+
+    /// Checks whether a ChunkType has valid bytes
+    fn has_valid_bytes(val: [u8;4]) -> bool {
+        ChunkType::is_valid_b(val[0]) && ChunkType::is_valid_b(val[1]) 
+        && ChunkType::is_valid_b(val[2]) && ChunkType::is_valid_b(val[3]) 
+    }
+
+    /// Returns a byte representation of the ChunkType
     pub fn bytes(&self) -> [u8;4] {
-
+        [self.0, self.1, self.2, self.3]
     }
 
+    /// Checks if a ChunkType is valid
     pub fn is_valid(&self) -> bool {
-
+        Self::has_valid_bytes(self.bytes()) && self.is_reserved_bit_valid()
     }
 
+    /// Checks if a ChunkType is critical or ancilliary
     pub fn is_critical(&self) -> bool {
-
+        !ChunkType::get_fifth_bit(self.0) 
     }
 
+    /// Checks if a ChunkType is public or not
     pub fn is_public(&self) -> bool {
-
+        !ChunkType::get_fifth_bit(self.1)
     }
 
+    /// Checks if the Reserved bit of the ChunkType is valid.
     pub fn is_reserved_bit_valid(&self) -> bool {
-
+        !ChunkType::get_fifth_bit(self.2) 
     }
 
+    /// Checks if the Chunk is safe to copy.
     pub fn is_safe_to_copy(&self) -> bool {
-
+        ChunkType::get_fifth_bit(self.3)
     }
 }
 
-
+/// Converts a byte array to a ChunkType object
 impl TryFrom<[u8; 4]> for ChunkType {
-    fn try_from(T) {
+    type Error = crate::Error;
 
+    //check that the bytes of the chunktype are valid
+    fn try_from(value: [u8;4]) -> crate::Result<Self>{
+        match ChunkType::has_valid_bytes(value) {
+            true => Ok(ChunkType(value[0], value[1], value[2], value[3])), 
+            false => Err(Box::new(InvalidChunkTypeError))
+        }
     }
 }
 
-impl FromStr for ChunkType {
+/// Converts a string to a ChunkType object
+impl str::FromStr for ChunkType {
+    type Err = crate::Error;
 
+    fn from_str(s: &str) -> crate::Result<Self> {
+        let bytes: &[u8] = s.as_bytes();
+        assert_eq!(bytes.len(), 4);
+        let bytes_owned: [u8;4] = [bytes[0], bytes[1], bytes[2], bytes[3]];
+
+        ChunkType::try_from(bytes_owned)
+    }
 }
 
-impl Display for ChunkType {
-
+/// Displays the ChunkType object as a string
+impl fmt::Display for ChunkType {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        let bytes = &self.bytes();
+        let ct_as_str = str::from_utf8(bytes).unwrap();
+        write!(f, "{}", ct_as_str)
+    }
 }
+
+/// Default ChunkType Creation Error
+#[derive(Debug)]
+struct InvalidChunkTypeError;
+
+impl fmt::Display for InvalidChunkTypeError {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        write!(f, "Invalid Chunk!")
+    }
+}
+
+impl error::Error for InvalidChunkTypeError {}
 
 #[cfg(test)]
 mod tests {
@@ -129,6 +184,7 @@ mod tests {
         assert!(!chunk.is_valid());
 
         let chunk = ChunkType::from_str("Ru1t");
+        println!("{}", chunk.is_err());
         assert!(chunk.is_err());
     }
 
