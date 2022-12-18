@@ -1,10 +1,10 @@
-use std::{fmt, str};
-use crc::{Crc, Algorithm, CRC_32_ISCSI};
+use std::{fmt, str, error};
+use crc::{Crc, Algorithm, CRC_32_ISO_HDLC};
 use crate::Result;
 
 use crate::chunk_type;
 
-pub const CASTAGNOLI: Crc<u32> = Crc::<u32>::new(&CRC_32_ISCSI);
+pub const ISO_3309: Crc<u32> = Crc::<u32>::new(&CRC_32_ISO_HDLC);
 
 pub struct Chunk {
     length: u32,
@@ -14,12 +14,21 @@ pub struct Chunk {
 }
 
 impl Chunk {
+    fn is_valid_crc(chunk_type: &chunk_type::ChunkType, data: &Vec<u8>, crc: u32) -> bool{
+        let mut x: Vec<u8> = chunk_type.bytes().to_vec();
+        x.extend(data);
+
+        let crc_output = ISO_3309.checksum(&x);
+
+        crc_output == crc 
+    }
+
     fn new(chunk_type: chunk_type::ChunkType, data: Vec<u8>) -> Chunk {
         let length: u32 = data.len() as u32;
         let mut x: Vec<u8> = chunk_type.bytes().to_vec();
         x.extend(&data);
         
-        let crc = CASTAGNOLI.checksum(&x);
+        let crc = ISO_3309.checksum(&x);
 
         Self {
             length: length,
@@ -69,32 +78,58 @@ impl Chunk {
 }
 
 impl TryFrom<&[u8]> for Chunk {
+    
+    type Error = crate::Error;
+
     fn try_from(value: &[u8]) -> Result<Self> {
 
         //get length
-        let length_bytes: [u8;4] = value[..4].try_into().unwrap();
+        let length_bytes: [u8;4] = value[..4].try_into()?;
         let length: u32 = u32::from_be_bytes(length_bytes);
 
         //get chunk_type
-        let chunk_type_bytes: [u8;4] = value[4..8].try_into().unwrap();
-        let chunk_type = chunk_type::ChunkType::try_from(chunk_type_bytes).unwrap();
+        let chunk_type_bytes: [u8;4] = value[4..8].try_into()?;
+        let chunk_type = chunk_type::ChunkType::try_from(chunk_type_bytes)?;
 
         //get data
-        let data: [u8;4] = value[8..(8+length as usize)].try_into().unwrap();
+        let data: Vec<u8>= value[8..(8+length as usize)].try_into()?;
 
         //get crc
-        let crc_bytes: [u8;4] = value[(8 + length as usize)..].try_into().unwrap();
+        let crc_bytes: [u8;4] = value[(8 + length as usize)..].try_into()?;
         let crc = u32::from_be_bytes(crc_bytes);
 
-        
+        match Self::is_valid_crc(&chunk_type, &data, crc) {
+            true => {}, 
+            false => {return Err(Box::new(InvalidCrcError))}
+        }
+
+        Ok(Self {
+            length: length,
+            chunk_type: chunk_type,
+            data: data,
+            crc: crc
+        })
+    }
+
+}
+
+impl fmt::Display for Chunk {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        let data_str = str::from_utf8(&self.data).unwrap();
+        write!(f, "{}", data_str)
     }
 }
 
-// impl fmt::Display for Chunk {
-//     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        
-//     }
-// }
+#[derive(Debug)]
+struct InvalidCrcError;
+
+impl fmt::Display for InvalidCrcError {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        write!(f, "Invalid Crc Bit!")
+    }
+}
+
+impl error::Error for InvalidCrcError {}
 
 #[cfg(test)]
 mod tests {
