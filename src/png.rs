@@ -1,12 +1,62 @@
-struct Png {
+use crate::{chunk, chunk_type, Result, Error};
 
+struct Png {
+    signature: [u8; 8],
+    chunks: Vec<chunk::Chunk>
 }
 
 impl Png {
     const STANDARD_HEADER: [u8;8] = [137, 80, 78, 71, 13, 10, 26, 10];
+
+    // fn from_chunks(chunks: Vec<chunk::Chunk>) -> Png {
+
+    // }
+
+    // fn append_chunk(&mut self, chunk: chunk::Chunk) {
+
+    // }
+    // fn remove_chunk(&mut self, chunk_type: &str) -> Result<chunk::Chunk> {
+
+    // }
+
+    // fn header(&self) -> &[u8; 8] {
+
+    // }
+    // fn chunks(&self) -> &[chunk::Chunk] {
+
+    // }
+
+    // fn chunk_by_type(&self, chunk_type: &str) -> Option<&chunk::Chunk> {
+
+    // }
+
+    // fn as_bytes(&self) -> Vec<u8> {
+    //     let mut bytes: Vec<u8> = Vec::from(self.signature);
+
+    // }
 }
 
-impl  iiiiiii
+impl TryFrom<&[u8]> for Png {
+    type Error = Error;
+
+    fn try_from(value: &[u8]) -> Result<Self> {
+        let signature: [u8; 8] = value[..8].try_into()?;
+        let chunks = Vec::new();
+        
+        let mut j: usize = 8;
+
+        while j < value.len() {
+            let length_bytes: [u8;4] = value[j..(j+4)].try_into()?;
+            let length: u32 = u32::from_be_bytes(length_bytes);
+            let length: usize = length as usize;
+            
+            let bytes: Box<[u8]> = Box::new(value[j..(j+length)].try_into()?);
+            // let chunk = chunk::Chunk::try_from(&bytes)?;
+        }
+        Ok()
+    }
+}
+
 #[cfg(test)]
 mod tests { 
     use super::*;
