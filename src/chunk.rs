@@ -14,7 +14,7 @@ pub struct Chunk {
 }
 
 impl Chunk {
-    fn is_valid_crc(chunk_type: &chunk_type::ChunkType, data: &Vec<u8>, crc: u32) -> bool{
+    pub fn is_valid_crc(chunk_type: &chunk_type::ChunkType, data: &Vec<u8>, crc: u32) -> bool{
         let mut x: Vec<u8> = chunk_type.bytes().to_vec();
         x.extend(data);
 
@@ -23,7 +23,7 @@ impl Chunk {
         crc_output == crc 
     }
 
-    fn new(chunk_type: chunk_type::ChunkType, data: Vec<u8>) -> Chunk {
+    pub fn new(chunk_type: chunk_type::ChunkType, data: Vec<u8>) -> Chunk {
         let length: u32 = data.len() as u32;
         let mut x: Vec<u8> = chunk_type.bytes().to_vec();
         x.extend(&data);
@@ -38,23 +38,23 @@ impl Chunk {
         }
     }
 
-    fn length(&self) -> u32 {
+    pub fn length(&self) -> u32 {
         self.length
     }
 
-    fn chunk_type(&self) -> &chunk_type::ChunkType {
+    pub fn chunk_type(&self) -> &chunk_type::ChunkType {
         &self.chunk_type
     }
 
-    fn data(&self) -> &[u8] {
+    pub fn data(&self) -> &[u8] {
         &self.data
     }
 
-    fn crc(&self) -> u32 {
+    pub fn crc(&self) -> u32 {
         self.crc
     }
 
-    fn data_as_string(&self) -> Result<String> {
+    pub fn data_as_string(&self) -> Result<String> {
         let bytes: &[u8] = &self.data;
         match str::from_utf8(bytes) {
             Ok(s) => Ok(String::from(s)),
@@ -62,7 +62,7 @@ impl Chunk {
         }
     }
 
-    fn as_bytes(&self) -> Vec<u8> {
+    pub fn as_bytes(&self) -> Vec<u8> {
         let length_bytes = self.length.to_be_bytes();
         let chunk_type_bytes = self.chunk_type.bytes();
         let crc_bytes = self.crc.to_be_bytes().to_vec();
@@ -115,7 +115,7 @@ impl TryFrom<&[u8]> for Chunk {
 
 impl fmt::Display for Chunk {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        let data_str = str::from_utf8(&self.data).unwrap();
+        let data_str = self.data_as_string().unwrap(); 
         write!(f, "{}", data_str)
     }
 }

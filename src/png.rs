@@ -1,61 +1,156 @@
-use crate::{chunk, chunk_type, Result, Error};
+use crate::{chunk::{self, Chunk}, chunk_type, Result, Error};
+use std::{fmt, error, str};
 
+/// Png object consisting of the png chunks and signature block
 struct Png {
     signature: [u8; 8],
     chunks: Vec<chunk::Chunk>
 }
 
 impl Png {
+
     const STANDARD_HEADER: [u8;8] = [137, 80, 78, 71, 13, 10, 26, 10];
 
-    // fn from_chunks(chunks: Vec<chunk::Chunk>) -> Png {
+    /// Turn a set of chunks to a png file
+    fn from_chunks(chunks: Vec<chunk::Chunk>) -> Png {
+        let signature: [u8; 8] = Png::STANDARD_HEADER;
+        Png {
+            signature: signature,
+            chunks: chunks
+        }
+    }
 
-    // }
+    /// Check for valid PNG signature
+    fn is_valid_signature(signature:[u8;8]) -> bool{
+        signature == Png::STANDARD_HEADER 
+    }
 
-    // fn append_chunk(&mut self, chunk: chunk::Chunk) {
+    /// Adds chunk to the end of the PNG
+    fn append_chunk(&mut self, chunk: chunk::Chunk) {
+        self.chunks.push(chunk);
+    }
 
-    // }
-    // fn remove_chunk(&mut self, chunk_type: &str) -> Result<chunk::Chunk> {
+    /// Removes specified chunk from PNG by searching for the specified
+    /// chunk by chunk type. 
+    fn remove_chunk(&mut self, chunk_type: &str) -> Result<chunk::Chunk> {
+        for i in 0..self.chunks.len() {
+            if self.chunks[i].chunk_type().as_str() == chunk_type {
+                return Ok(self.chunks.remove(i));
+            }
+        }
+        Err(Box::new(ChunkNotFoundError))
+    }
 
-    // }
+    /// Returns the header chunk (signature) of the PNG
+    fn header(&self) -> &[u8; 8] {
+        &self.signature
+    }
 
-    // fn header(&self) -> &[u8; 8] {
+    /// Returns the chunks in the PNG
+    fn chunks(&self) -> &[chunk::Chunk] {
+        &self.chunks
+    }
 
-    // }
-    // fn chunks(&self) -> &[chunk::Chunk] {
+    /// Returns a chunk specified by the chunk type from the PNG  
+    fn chunk_by_type(&self, chunk_type: &str) -> Option<&chunk::Chunk> {
+        for i in 0..self.chunks.len() {
+            if self.chunks[i].chunk_type().as_str() == chunk_type {
+                return Some(&self.chunks[i]);
+            }
+        }
+       None
+    }
 
-    // }
+    /// Turns the Png file to a vector of bytes
+    fn as_bytes(&self) -> Vec<u8> {
+        let mut bytes: Vec<u8> = Vec::from(self.signature);
 
-    // fn chunk_by_type(&self, chunk_type: &str) -> Option<&chunk::Chunk> {
-
-    // }
-
-    // fn as_bytes(&self) -> Vec<u8> {
-    //     let mut bytes: Vec<u8> = Vec::from(self.signature);
-
-    // }
+        let chunk_bytes: Vec<u8> = self.chunks.iter().flat_map(|chunk| chunk.as_bytes()).collect();
+        bytes.extend(&chunk_bytes);
+        bytes
+    }
 }
 
+///Turns a byte array to a PNG 
 impl TryFrom<&[u8]> for Png {
     type Error = Error;
 
+    /// Turn an array of bytes to a Png File
     fn try_from(value: &[u8]) -> Result<Self> {
         let signature: [u8; 8] = value[..8].try_into()?;
-        let chunks = Vec::new();
+
+        //Check for valid signature bit
+        if !Png::is_valid_signature(signature) {
+            return Err(Box::new(InvalidSignatureError));
+        }
+
+        let mut chunks = Vec::new();
         
+        //Iterator to represent start of a new chunk
         let mut j: usize = 8;
 
         while j < value.len() {
+
+            //Get the length of the chunk
             let length_bytes: [u8;4] = value[j..(j+4)].try_into()?;
             let length: u32 = u32::from_be_bytes(length_bytes);
             let length: usize = length as usize;
-            
-            let bytes: Box<[u8]> = Box::new(value[j..(j+length)].try_into()?);
-            // let chunk = chunk::Chunk::try_from(&bytes)?;
+
+            //Get the byte corresponding to the chunk 
+            //12 added to account for length, chunk_type, and crc bytes. 
+            let bytes: Vec<u8> = value[j..(j+12+length)].to_vec();
+            let chunk = chunk::Chunk::try_from(bytes.as_slice())?;
+
+            //Add chunk to chunks
+            chunks.push(chunk);
+
+            //Update iterator
+            j += 12 + length;
         }
-        Ok()
+        Ok(Png { signature: signature, chunks: chunks })
     }
 }
+
+///Displays the chunk data as a string of utf8s, seperated by a space
+impl fmt::Display for Png{
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        let mut png_str = String::new();
+        
+        for chunk in &self.chunks {
+            png_str += &(chunk.data_as_string()).unwrap();
+
+            //Add Spacing between chunks for easy seperation
+            png_str += " ";
+        }
+
+        // println!("{}", png_str);
+        write!(f, "{}", png_str)
+    }
+}
+
+/// Error specifying a chunk not being found in search
+#[derive(Debug)]
+struct ChunkNotFoundError;
+
+impl fmt::Display for ChunkNotFoundError {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        write!(f, "Chunk not Found!")
+    }
+}
+
+impl error::Error for ChunkNotFoundError {}
+
+/// Error specifying a signature being invalid in the chunk
+#[derive(Debug)]
+struct InvalidSignatureError;
+
+impl fmt::Display for InvalidSignatureError {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        write!(f, "Chunk has Invalid Signature!")
+    }
+}
+
+impl error::Error for InvalidSignatureError {}
 
 #[cfg(test)]
 mod tests { 
@@ -198,8 +293,8 @@ mod tests {
 
     #[test]
     fn test_as_bytes() {
-        let png = Png::try_from(&PNG_FILE[..]).unwrap();
-        let actual = png.as_bytes();
+        let png = Png::try_from(&PNG_FILE[..]).unwrap(); //goes from [u8] -> PngFile
+        let actual = png.as_bytes(); //goes from PngFile -> [u8]
         let expected: Vec<u8> = PNG_FILE.iter().copied().collect();
         assert_eq!(actual, expected);
     }

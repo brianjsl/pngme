@@ -54,6 +54,13 @@ impl ChunkType {
     pub fn is_safe_to_copy(&self) -> bool {
         ChunkType::get_fifth_bit(self.3)
     }
+
+    pub fn as_str(&self) -> String {
+        let bytes = &self.bytes();
+        let ct_as_str = str::from_utf8(bytes).unwrap();
+        String::from(ct_as_str)
+    }
+    
 }
 
 /// Converts a byte array to a ChunkType object
@@ -85,9 +92,7 @@ impl str::FromStr for ChunkType {
 /// Displays the ChunkType object as a string
 impl fmt::Display for ChunkType {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        let bytes = &self.bytes();
-        let ct_as_str = str::from_utf8(bytes).unwrap();
-        write!(f, "{}", ct_as_str)
+        write!(f, "{}", self.as_str())
     }
 }
 
