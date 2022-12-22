@@ -28,6 +28,8 @@ fn get_png(fp: String) -> Result<png::Png> {
 
 fn encode(fp: String, ct: String, msg: String, of: Option<String>) -> Result<()> {
 
+    let fp_clone = fp.clone();
+
     // get PNG struct from file path
     let mut png = get_png(fp)?;
 
@@ -41,6 +43,8 @@ fn encode(fp: String, ct: String, msg: String, of: Option<String>) -> Result<()>
 
     if let Some(ofp) = of {
         fs::write(ofp, png.as_bytes())?;
+    } else {
+        fs::write(fp_clone, png.as_bytes())?;
     };
 
     Ok(())
