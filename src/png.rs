@@ -2,7 +2,7 @@ use crate::{chunk::{self, Chunk}, chunk_type, Result, Error};
 use std::{fmt, error, str};
 
 /// Png object consisting of the png chunks and signature block
-struct Png {
+pub struct Png {
     signature: [u8; 8],
     chunks: Vec<chunk::Chunk>
 }
@@ -12,7 +12,7 @@ impl Png {
     const STANDARD_HEADER: [u8;8] = [137, 80, 78, 71, 13, 10, 26, 10];
 
     /// Turn a set of chunks to a png file
-    fn from_chunks(chunks: Vec<chunk::Chunk>) -> Png {
+    pub fn from_chunks(chunks: Vec<chunk::Chunk>) -> Png {
         let signature: [u8; 8] = Png::STANDARD_HEADER;
         Png {
             signature: signature,
@@ -26,13 +26,13 @@ impl Png {
     }
 
     /// Adds chunk to the end of the PNG
-    fn append_chunk(&mut self, chunk: chunk::Chunk) {
+    pub fn append_chunk(&mut self, chunk: chunk::Chunk) {
         self.chunks.push(chunk);
     }
 
     /// Removes specified chunk from PNG by searching for the specified
     /// chunk by chunk type. 
-    fn remove_chunk(&mut self, chunk_type: &str) -> Result<chunk::Chunk> {
+    pub fn remove_chunk(&mut self, chunk_type: &str) -> Result<chunk::Chunk> {
         for i in 0..self.chunks.len() {
             if self.chunks[i].chunk_type().as_str() == chunk_type {
                 return Ok(self.chunks.remove(i));
@@ -42,17 +42,17 @@ impl Png {
     }
 
     /// Returns the header chunk (signature) of the PNG
-    fn header(&self) -> &[u8; 8] {
+    pub fn header(&self) -> &[u8; 8] {
         &self.signature
     }
 
     /// Returns the chunks in the PNG
-    fn chunks(&self) -> &[chunk::Chunk] {
+    pub fn chunks(&self) -> &[chunk::Chunk] {
         &self.chunks
     }
 
     /// Returns a chunk specified by the chunk type from the PNG  
-    fn chunk_by_type(&self, chunk_type: &str) -> Option<&chunk::Chunk> {
+    pub fn chunk_by_type(&self, chunk_type: &str) -> Option<&chunk::Chunk> {
         for i in 0..self.chunks.len() {
             if self.chunks[i].chunk_type().as_str() == chunk_type {
                 return Some(&self.chunks[i]);
@@ -62,12 +62,23 @@ impl Png {
     }
 
     /// Turns the Png file to a vector of bytes
-    fn as_bytes(&self) -> Vec<u8> {
+    pub fn as_bytes(&self) -> Vec<u8> {
         let mut bytes: Vec<u8> = Vec::from(self.signature);
 
         let chunk_bytes: Vec<u8> = self.chunks.iter().flat_map(|chunk| chunk.as_bytes()).collect();
         bytes.extend(&chunk_bytes);
         bytes
+    }
+
+    pub fn ancillary_chunks(&self) -> Vec<String> {
+        let mut ancilliary_chunks: Vec<String> = Vec::new();
+
+        for chunk in &self.chunks {
+            if !chunk.chunk_type().is_critical() {
+                ancilliary_chunks.push(String::from(&chunk.chunk_type().as_str()));
+            }
+        }
+        ancilliary_chunks
     }
 }
 
@@ -130,7 +141,7 @@ impl fmt::Display for Png{
 
 /// Error specifying a chunk not being found in search
 #[derive(Debug)]
-struct ChunkNotFoundError;
+pub struct ChunkNotFoundError;
 
 impl fmt::Display for ChunkNotFoundError {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
