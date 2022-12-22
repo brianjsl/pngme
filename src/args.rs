@@ -6,11 +6,14 @@ use std::env;
 #[command(author = "Brian Lee <brianjslmit@gmail.com>")]
 #[command(version = "1.0")]
 #[command(about = "Encode/Decode secret messages in your PNGs", long_about = None)]
+
+/// Specifies the type of Command Line Argument
 pub struct Args {
     #[command(subcommand)]
     pub command: Commands,
 }
 
+/// Seperates type of Command Line Argument
 #[derive(Debug, Subcommand)]
 pub enum Commands {
     /// Encodes a message string of a given PNG chunk type to a 

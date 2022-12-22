@@ -2,6 +2,7 @@ use crate::{args::{Args, Commands}, chunk, chunk_type, png};
 use std::{fs, str::FromStr, io, io::Write};
 use crate::Result;
 
+/// Runs the specified command corresponding to the argument configuration 
 pub fn run(args: Args) -> Result<()> {
     match args.command {
         Commands::encode{file_path , chunk_type, message, output_file} 
